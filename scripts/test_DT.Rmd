@@ -1,0 +1,20 @@
+---
+title: "Untitled"
+author: "Lefkios Paikousis"
+date: "14/12/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+
+```{r cars}
+
+library(DT)
+datatable(mtcars) %>% 
+  formatRound(columns = c("wt"), 1) %>% 
+  formatPercentage("vs")
+  
+```
