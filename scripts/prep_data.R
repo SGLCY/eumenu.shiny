@@ -4,7 +4,7 @@ library(tidyverse)
 library(readxl)
 
 
-dataset <- read_xlsx("Consumption_EUMENU_mapped_fdx2_fdx1 Lot2.xlsx")
+dataset <- read_xlsx("LOT1.xlsx")
 
 dataset <- dataset %>% filter(AgeGroup != "Pregnant Women")
 
@@ -191,4 +191,19 @@ dataset %>%
     coord_flip()+
     scale_x_discrete(labels = scales::wrap_format(40))
     
+  
+# SURVEY Descriptifes #### 
+  
+  
+  dataset %>% 
+    distinct(ORSUBCODE, AgeGroup, Gender) %>%
+    janitor::tabyl(Gender, AgeGroup, show_missing_levels = FALSE) %>% 
+    janitor::adorn_totals(c("row", "col")) %>% 
+    janitor::adorn_percentages() %>%
+    janitor::adorn_pct_formatting() %>% 
+    janitor::adorn_ns() %>% 
+    janitor::untabyl()
+    
+
+  
     

@@ -5,6 +5,7 @@ library(dplyr)
 library(ggplot2)
 library(rlang)
 library(patchwork)
+library(janitor)
 
 options(shiny.maxRequestSize = 10 * 1024^2)
 
@@ -54,7 +55,8 @@ ui <- fluidPage(
                           
                           fileInput("file", "An excel file please", buttonLabel = "Upload...", accept = ".xlsx")
                           
-                          #,h3("Select columns to show")
+                          #,uiOutput("Gender")
+                          #,uiOutput("Area")
                           
                           # Other inputs
                           ,uiOutput("show_vars")
@@ -78,7 +80,16 @@ ui <- fluidPage(
                                               tabPanel(title = "FoodEx1",
                                                        h3("The FoodEx1 food classification system"),
                                                        DT::dataTableOutput("foodex1")
-                                                       )
+                                                       ),
+                                              
+                                              tabPanel(title = "Survey Samples",
+                                                       h3("The FoodSurvey sample sizes"),
+                                                       p("The table shows the sample size [% (N)] of participants"),
+                                                       tableOutput("freq_gender_age"),
+                                                       p(" "),
+                                                       tableOutput("freq_district_urban")
+                                                       
+                                              )
                                               
                                   )
                                   
@@ -130,9 +141,14 @@ ui <- fluidPage(
                                                
                                                ,tableOutput("cons_mean")
                                                
+                                               ,h2("Descriptives per AgeGroup and Gender")
+                                               
+                                               ,tableOutput("cons_mean_gender")
+                                               
                                                ,h2("Individual mean consumption")
                                                
                                                ,DT::dataTableOutput("cons_individual")
+                                               
                                                
                                       ),
                                       
@@ -213,34 +229,33 @@ server <- function(input, output) {
                FOODEX_L3_DESC %in% food_group |
                FOODEX_L2_DESC %in% food_group |
                FOODEX_L1_DESC %in% food_group) %>%
-      group_by(AgeGroup, ORSUBCODE) %>% 
+      group_by(AgeGroup, Gender, ORSUBCODE) %>% 
       summarise(total_consumption = sum(AMOUNTFRAW)) %>% 
       left_join(number_of_days(), by = "ORSUBCODE") %>% 
       left_join(subject_weight(), by = "ORSUBCODE") %>%
       left_join(n_age_group(), by = "AgeGroup") %>% 
       mutate(gr_day =  total_consumption/ n_days,
              gr_kbw_day  = total_consumption/ n_days/ Weight) %>% 
-      ungroup() 
+      ungroup()
     
   }
   
   aggr_age_group <- function(.data){
     
     .data %>% 
-      group_by(AgeGroup, "participants"= n) %>% 
-      summarise(consumers = n(),
-                total_cons  = sum(gr_day),
-                med_con = median(gr_day),
-                avg_con = mean(gr_day),
+      group_by(AgeGroup, "participants"= n, add = TRUE) %>% 
+      summarise(consumers  = n(),
+                total_cons = sum(gr_day),
+                med_con    = median(gr_day),
+                avg_con    = mean(gr_day),
                 med_con_bw = median(gr_kbw_day),
                 avg_con_bw = mean(gr_kbw_day),
-                SD_con = sd(gr_day)
-      ) %>% 
+                SD_con     = sd(gr_day)
+                ) %>% 
       mutate(prop = consumers/participants) %>% 
       select(AgeGroup, participants, consumers, prop, everything())
     
   }
-  
   
   # Reactive Elements ####
   dataset <- reactive({
@@ -261,7 +276,7 @@ server <- function(input, output) {
         foodex1
         , by = c("foodexOldCode" = "FOODEX_L4_CODE") ) %>% 
       mutate(AgeGroup = factor(AgeGroup, levels = age_levels)
-             , Gender = factor(Gender, levels = gender_levels))
+             , Gender = factor(Gender, levels = gender_levels, labels = gender_levels))
     
   })
   
@@ -270,7 +285,7 @@ server <- function(input, output) {
   subject_weight <- reactive(dataset() %>% distinct(ORSUBCODE, Weight))
   n_age_group    <- reactive(dataset() %>% distinct(ORSUBCODE, .keep_all = TRUE) %>%  count(AgeGroup)) 
   
-  filters <- reactive(c(input$fdx1
+  filters <- reactive({c(input$fdx1
                         , input$fdx2
                         , input$ENFOODNAME
                         , input$ENRECIPEDESC
@@ -279,7 +294,7 @@ server <- function(input, output) {
                         , input$FOODEX_L2_DESC
                         , input$FOODEX_L1_DESC
                         )
-                      )
+                      })
   
   participants   <- reactive({
     dataset() %>% 
@@ -297,10 +312,47 @@ server <- function(input, output) {
     
     if(!is.null(filters())){
       dataset() %>% 
+        # {if(input$Gender != "") filter(., Gender == input$Gender) else .} %>% 
+        # {if(input$Area != "") filter(., URBAN == input$Area) else .} %>% 
         filter_fdgrp(filters()) %>% 
         aggr_age_group()
     } else return("No Data")
     
+  })
+  
+  cons_mean_gender <- reactive({
+    
+    if(!is.null(filters())){
+      dataset() %>% 
+        filter_fdgrp(filters()) %>% 
+        group_by(Gender) %>% 
+        aggr_age_group()
+    } else return("No Data")
+    
+  })
+  
+  freq_gender_age <- reactive({
+    
+    dataset() %>% 
+      distinct(ORSUBCODE, AgeGroup, Gender) %>%
+      janitor::tabyl(Gender, AgeGroup, show_missing_levels = FALSE) %>% 
+      janitor::adorn_totals(c("row", "col")) %>% 
+      janitor::adorn_percentages() %>% 
+      janitor::adorn_pct_formatting() %>% 
+      janitor::adorn_ns() %>% 
+      janitor::untabyl() 
+  })
+  
+  freq_district_urban <- reactive({
+    
+    dataset() %>% 
+      distinct(ORSUBCODE, district_gr, URBAN) %>%
+      janitor::tabyl(district_gr, URBAN, show_missing_levels = FALSE) %>% 
+      janitor::adorn_totals(c("row", "col")) %>% 
+      janitor::adorn_percentages() %>% 
+      janitor::adorn_pct_formatting() %>% 
+      janitor::adorn_ns() %>% 
+      janitor::untabyl() 
   })
   
     ## Create UI's. ####
@@ -348,12 +400,31 @@ server <- function(input, output) {
       selectInput("FOODEX_L1_DESC","Description @ FoodEx1 L1", choices = FOODEX_L1_names, multiple = TRUE)
       
     })
-    output$show_vars <- renderUI({
+    
+    output$show_vars      <- renderUI({
       
       vars_to_show <- c("fdx2_name", "fdx1_name", "ORFOODNAME", "ENFOODNAME", "COMMENTSFOOD", "ENRECIPEDESC") 
       
-      checkboxGroupInput("show_vars", "Columns in the database to show:",
-                         names(dataset()), selected = vars_to_show)
+      list(
+        h3("Select columns to show"),
+        checkboxGroupInput("show_vars", "Columns in the database",
+                           names(dataset()), selected = vars_to_show)
+      
+      )
+    })
+    
+    output$Gender        <- renderUI({
+      gender_choices <- levels(dataset()$Gender)
+      list(
+        h3("Filter your data"),
+        p("Use these to filter down your data by GENDER and/or AREA, eg. MALES, LIMASSOL"),
+        selectInput("Gender", "Gender", choices = c("ALL" = "", gender_choices))
+      )
+    })
+    
+    output$Area        <- renderUI({
+      urban_choices <- unique(dataset()$URBAN)
+      selectInput("Area", "Area", choices = c("ALL" = "", urban_choices))
     })
     
     # PLOTS ####
@@ -366,7 +437,7 @@ server <- function(input, output) {
             coord_flip()+
             geom_text(aes(label = round(avg_con,0)),
                       hjust = 1.3, size = 6)+
-            labs(y = "g/day",
+            labs(y = "gr/day",
                  x = "")+
             labs(title = "Mean consumption (grams) per day"
                  , subtitle = "Consumers only")
@@ -383,7 +454,7 @@ server <- function(input, output) {
           geom_density(alpha =0.4)+
           #scale_fill_brewer(type = "qual")+
           labs(y = "Density",
-               x = "g/day")+
+               x = "gr/day")+
           labs(title = "Distribution by Age Group(grams) per day"
                , subtitle = "Consumers only")+
           theme(legend.position = "bottom")+
@@ -405,7 +476,7 @@ server <- function(input, output) {
                          )+
           geom_vline(aes(xintercept = mean(.data$total_consumption)),colour = "red", linetype = "dashed")+
           labs(y = "Number of consumers"
-               , x = "Total Consumption (gr)"
+               , x = "Total Consumption in food survey (gr)"
                , title = "Distribution of total consumption")
         
       })
@@ -422,7 +493,6 @@ server <- function(input, output) {
       
     })
     
-
     output$plot_combined <- renderPlot({
       
       check_filter_combined()
@@ -447,7 +517,9 @@ server <- function(input, output) {
       
       check_data_input()
 
-      dataset()[, input$show_vars, drop=FALSE]
+      #dataset()[, input$show_vars, drop=FALSE]
+      
+      dataset() %>% select_at(input$show_vars)
       
       }, filter = "top")
     
@@ -456,13 +528,37 @@ server <- function(input, output) {
       check_filter_combined()
       
       cons_mean() %>% 
-        rename(
-          "Total Consumption" = total_cons
+        select(
+          "Age Group" = AgeGroup
+          ,"Participants" = participants
+          , "Consumers" = consumers
+          , "Proportion" = prop
+          , "Total Consumption" = total_cons
           , "Mean Daily Consumption" = avg_con
           , "Median Daily Consumption" = med_con
+          , "Mean Daily (kg_bw)" = avg_con_bw
         ) 
       
-      }, digits = table_digits)
+      }, digits = table_digits, caption = "NOTE:Consumption in grams/ml")
+    
+    output$cons_mean_gender <- renderTable({
+      
+      check_filter_combined()
+      
+      cons_mean_gender() %>% 
+        select(
+          "Age Group" = AgeGroup
+          , Gender
+          ,"Participants" = participants
+          , "Consumers" = consumers
+          , "Proportion" = prop
+          , "Total Consumption" = total_cons
+          , "Mean Daily Consumption" = avg_con
+          , "Median Daily Consumption" = med_con
+          , "Mean Daily (kg_bw)" = avg_con_bw
+        ) 
+      
+    }, digits = table_digits, caption = "NOTE:Consumption in grams/ml")
     
     output$cons_individual <- DT::renderDataTable({ 
       
@@ -486,6 +582,19 @@ server <- function(input, output) {
       
       }, filter = "top")
     
+    output$freq_gender_age <- renderTable({
+      
+      check_data_input()
+      
+      freq_gender_age()}, caption = "" )
+    
+    output$freq_district_urban <- renderTable({
+      
+      check_data_input()
+      
+      freq_district_urban()
+      
+    }, caption = "")
 }
 
 # RUN ####
