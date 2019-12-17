@@ -270,6 +270,9 @@ server <- function(input, output) {
     # validate(need(ext == "xlsx", "Please upload an xlsx file"))
     
     # vroom::vroom(input$file$datapath, delim = ",")
+    
+    # if the readxl has some warinings it all gets stuck!!!!
+    suppressWarnings(
     readxl::read_xlsx(paste(input$file$datapath, ext, sep="."), 1) %>% 
       select(SURVEY:AgeGroup,Age:BMI) %>% 
       left_join(
@@ -277,7 +280,7 @@ server <- function(input, output) {
         , by = c("foodexOldCode" = "FOODEX_L4_CODE") ) %>% 
       mutate(AgeGroup = factor(AgeGroup, levels = age_levels)
              , Gender = factor(Gender, levels = gender_levels, labels = gender_levels))
-    
+    )
   })
   
   # helper datasets
