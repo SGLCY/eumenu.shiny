@@ -329,7 +329,8 @@ server <- function(input, output) {
       dataset() %>% 
         filter_fdgrp(filters()) %>% 
         group_by(Gender) %>% 
-        aggr_age_group()
+        aggr_age_group() %>% 
+        arrange(AgeGroup, Gender)
     } else return("No Data")
     
   })
