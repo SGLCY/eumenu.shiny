@@ -348,8 +348,8 @@ server <- function(input, output) {
   freq_district_urban <- reactive({
     
     dataset() %>% 
-      distinct(ORSUBCODE, district_gr, URBAN) %>%
-      janitor::tabyl(district_gr, URBAN, show_missing_levels = FALSE) %>% 
+      distinct(ORSUBCODE, district_en, URBAN) %>%
+      janitor::tabyl(district_en, URBAN, show_missing_levels = FALSE) %>% 
       janitor::adorn_totals(c("row", "col")) %>% 
       janitor::adorn_percentages() %>% 
       janitor::adorn_pct_formatting() %>% 
@@ -405,7 +405,9 @@ server <- function(input, output) {
     
     output$show_vars      <- renderUI({
       
-      vars_to_show <- c("fdx2_name", "fdx1_name", "ORFOODNAME", "ENFOODNAME", "COMMENTSFOOD", "ENRECIPEDESC") 
+      vars_to_show <- c("fdx2_name", "fdx1_name", "ORFOODNAME", "ENFOODNAME"
+                        #, "COMMENTSFOOD" similar to foodex2 name
+                        , "ENRECIPEDESC") 
       
       list(
         h3("Select columns to show"),
