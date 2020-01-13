@@ -34,6 +34,8 @@ foodex1 <-
   select(FOODEX_L4_CODE, FOODEX_L4_DESC, FOODEX_L3_CODE, FOODEX_L3_DESC,
          FOODEX_L2_CODE, FOODEX_L2_DESC, FOODEX_L1_CODE, FOODEX_L1_DESC)
 
+data_description <- 
+  readRDS("data/data_description.rds")
 
 ## UI ####
 
@@ -87,8 +89,12 @@ ui <- fluidPage(
                                                        p(" "),
                                                        tableOutput("freq_district_urban")
                                                        
+                                              ),
+                                              tabPanel(title = "Data Description",
+                                                       h3("A description of the columns in the dataset"),
+                                                       #p("The table shows what each column in the data represents"),
+                                                       DT::dataTableOutput("data_description")
                                               )
-                                              
                                   )
                                   
                                   , width = main_width
@@ -599,6 +605,10 @@ server <- function(input, output) {
       freq_district_urban()
       
     }, caption = "")
+    
+    output$data_description <- DT::renderDataTable({ data_description}, filter = "top"
+                                                   , options = list(pageLength = 30)
+                                                   )
 }
 
 # RUN ####
