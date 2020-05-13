@@ -215,9 +215,26 @@ server <- function(input, output) {
    check_data_input <-  function(){
      
      validate(
-       need(input$file, "Upload a dataset")
+       need(input$file, "Upload a dataset"),
+       need(dataset, "Dataset in the wrong format")
      )
    }
+   
+   # VAriable names I need in the dataset
+   var_names <- c("SURVEY", "RECORDIDENTIFIER", "ORSUBCODE", 
+                  "FOODEXCODE", "DAY", "foodexOldCode", 
+                  "fdx2_name", "fdx1_name", 
+                  "ORFOODCODE", "ORFOODNAME", 
+                  "ENFOODNAME", "prodTreat", 
+                  "ENRECIPEDESC", "AMOUNTRECIPE", 
+                  "AMOUNTFRAW", "AMOUNTFCOOKED", 
+                  "ID", "URBAN", "area_gr", "area_en", 
+                  "district_gr", "district_en", 
+                  "Gender", "AgeGroup", "Age", "Weight", "BMI")
+   file_input_error <- 
+     c(      "Your data does not have the correct column names!\nPlease check the following:\n
+           a) Your data are in a sheet called `Sheet1`,\n
+           b) The column names are the ones shown in the Data Description tab")
    
    
   # FUNCTIONS ####
@@ -271,20 +288,35 @@ server <- function(input, output) {
     file.rename(input$file$datapath,
                 paste(input$file$datapath, ext, sep="."))
     
-    # validate(need(ext == "xlsx", "Please upload an xlsx file"))
+    #validate(need(ext == "xlsx", "Please upload an xlsx file"))
     
-    # vroom::vroom(input$file$datapath, delim = ",")
     
     # if the readxl has some warinings it all gets stuck!!!!
     suppressWarnings(
-    readxl::read_xlsx(paste(input$file$datapath, ext, sep="."), 1) %>% 
-      select(SURVEY:AgeGroup,Age:BMI) %>% 
-      left_join(
-        foodex1
-        , by = c("foodexOldCode" = "FOODEX_L4_CODE") ) %>% 
-      mutate(AgeGroup = factor(AgeGroup, levels = age_levels)
-             , Gender = factor(Gender, levels = gender_levels, labels = gender_levels))
+    
+      temp <- readxl::read_xlsx(paste(input$file$datapath, ext, sep=".")
+                                , sheet = "Sheet1"
+                                ) 
     )
+    
+    validate(
+      need(all(names(temp) %in% var_names),file_input_error)
+    )
+    
+    if(all(names(temp) %in% var_names)){
+      
+      temp %>% 
+        select(all_of(var_names)) %>% 
+        left_join(
+          foodex1
+          , by = c("foodexOldCode" = "FOODEX_L4_CODE") ) %>% 
+        mutate(AgeGroup = factor(AgeGroup, levels = age_levels)
+               , Gender = factor(Gender, levels = gender_levels, labels = gender_levels)
+               )
+    } else {
+      NULL
+    }
+
   })
   
   # helper datasets
