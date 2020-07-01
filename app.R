@@ -7,7 +7,7 @@ library(rlang)
 library(patchwork)
 library(janitor)
 
-options(shiny.maxRequestSize = 12 * 1024^2)
+options(shiny.maxRequestSize = 30 * 1024^2)
 
 ggplot2::theme_set(ggplot2::theme_light(16))
 
