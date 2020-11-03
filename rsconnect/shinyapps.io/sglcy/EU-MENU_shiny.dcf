@@ -1,0 +1,13 @@
+name: EU-MENU_shiny
+title: EU-MENU_shiny
+username:
+account: sglcy
+server: shinyapps.io
+hostUrl: https://api.shinyapps.io/v1
+appId: 3151464
+bundleId: 3814894
+url: https://sglcy.shinyapps.io/EU-MENU_shiny/
+when: 1604398859.86107
+asMultiple: FALSE
+asStatic: FALSE
+ignoredFiles: sample_lot1.xlsx|scripts
